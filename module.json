@@ -1,0 +1,9 @@
+{
+	"options": {
+		"reloadable": true,
+		"settingsVersion": 1,
+		"settingsFile": "config.json",
+		"settingsMigrator": "settings_migrator.js"
+	},
+	"name": "combat-buffs"
+}
