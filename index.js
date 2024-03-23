@@ -10,7 +10,7 @@ exports.NetworkMod = class {
 		mod.dispatch.addDefinition("C_START_SERVANT_ACTIVE_SKILL", 2, path.join(__dirname, "defs", "C_START_SERVANT_ACTIVE_SKILL.2.def"));
 		mod.dispatch.addDefinition("S_START_COOLTIME_SERVANT_SKILL", 1, path.join(__dirname, "defs", "S_START_COOLTIME_SERVANT_SKILL.1.def"));
 		mod.dispatch.addDefinition("S_UPDATE_SERVANT_INFO", 1, path.join(__dirname, "defs", "S_UPDATE_SERVANT_INFO.1.def"));
-		
+
 		// code probably doesn't matter
 		mod.dispatch.addOpcode("C_REQUEST_SPAWN_SERVANT", 23680, false);
 
@@ -19,16 +19,19 @@ exports.NetworkMod = class {
 		mod.game.me.on("enter_combat", () => this.startReminders());
 		mod.game.me.on("leave_combat", () => this.stopReminders());
 
-		mod.command.add("cr", {
+		mod.command.add("crd", {
 			r: () => { console.log("reloading"); this.stopReminders(); this.mod.manager.reload("combat-reminders"); },
 			t: () => console.log("test"),
 		});
-		
+
 		// listen for pet info
 		mod.hook("C_START_SERVANT_ACTIVE_SKILL", 2, event => {
-			mod.settings.skill = event.skill;
+			if (event.skill !== mod.settings.skill) {
+				mod.settings.skill = event.skill;
+				mod.command.message("Pet skill saved");
+			}
 		});
-		
+
 		// if bracing force is used then this gives the remaining cooldown
 		mod.hook("S_START_COOLTIME_SERVANT_SKILL", 1, event => {
 			this.nextBracingForce = Date.now() + event.cooltime;
@@ -42,12 +45,24 @@ exports.NetworkMod = class {
 
 		mod.hook("S_REQUEST_SPAWN_SERVANT", 4, (event) => {
 			if (mod.game.me.is(event.ownerId)) {
-				mod.settings.gameId = Number(event.gameId);
-				mod.settings.dbid = Number(event.dbid);
-				mod.settings.id = event.id;
-				
-				// when pet is spawned try to use its skill
-				if (mod.settings.skill) {
+				mod.command.remove("cr");
+
+				const dbId = Number(event.dbid);
+				const gameId = Number(event.gameId);
+
+				if (mod.settings.dbid !== dbId) {
+					mod.command.add("cr", () => {
+						mod.settings.dbid = dbId
+						mod.settings.id = event.id;
+						mod.settings.gameId = gameId; // does this need to be in settings?
+						mod.command.message("Config saved, remember to use pet skill to save it");
+					});
+
+					mod.command.message("New pet detected. Use !cr to save pet");
+				} else if (mod.settings.skill) {
+					mod.settings.gameId = gameId; // does this need to be in settings?
+
+					// use skill if pet is same as saved and skill is known
 					mod.send("C_START_SERVANT_ACTIVE_SKILL", 2, {
 						gameId: this.mod.settings.gameId,
 						skill: this.mod.settings.skill,
@@ -99,12 +114,18 @@ exports.NetworkMod = class {
 	useNostrum() {
 		// console.log("useNostrum");
 		// check if available?
+		/*
+		// red multinostrum
 		this.mod.send("C_USE_PREMIUM_SLOT", 1, {
 			set: 433,
 			slot: 8,
 			type: 1,
 			id: 280061,
 		});
+		*/
+
+		// blue multinostrum
+		this.mod.send("C_USE_PREMIUM_SLOT", 1, { set: 433, slot: 7, type: 1, id: 280060 });
 	}
 
 	useBracingForce() {
